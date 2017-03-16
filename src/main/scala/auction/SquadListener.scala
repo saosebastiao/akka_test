@@ -20,7 +20,7 @@ class SquadListener(auctionID: Int) extends Actor {
   }
   def receive = {
     case GetAuctionState => auction ! GetAuctionState
-    case x => println(s"listener received $x")
+    case x => sender ! x
   }
 }
 object SquadListener {

@@ -71,7 +71,9 @@ class AuctionFSM(auctionID: Int, model: DAO) extends Actor with ListenerManager 
   var availableSquads: Map[Int,Squad] = model.getAvailableSquads
   var parties: Map[Int,Party] = model.getParties
   var transactions = model.getTransactions
-  def receive = ???
+  def receive = {
+    case x => sender ! x
+  }
   def PreAuction: Receive = {
     scheduleRecurringMsg(GetParticipants,Duration.ofMinutes(3))
     return SubscribeWatcher.orElse {
@@ -125,7 +127,7 @@ object AuctionFSM {
       }
     }
   }
-  def dropAuction(auctionID: Int) = {
+  private def dropAuction(auctionID: Int) = {
     auctions -= auctionID
   }
 }
