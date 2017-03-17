@@ -50,27 +50,20 @@ trait ListenerManager { this: Actor =>
 }
 
 
-trait EventScheduler { this: Actor =>
+trait StateManager { this: Actor =>
   import context.dispatcher
   private var cancellables = Set[Cancellable]()
-  private def scheduleMsg(msg: Any,time: OffsetDateTime) = {
+  protected def scheduleMsg(msg: Any,time: OffsetDateTime) = {
     val delay = Duration.between(OffsetDateTime.now(),time).getSeconds.seconds
     cancellables += context.system.scheduler.scheduleOnce(delay, self, msg)
   }
-  def scheduleRecurringMsg(msg: Any,every: Duration) = {
-    val delay = every.getSeconds.seconds
-    cancellables += context.system.scheduler.schedule(delay,delay,self,msg)
-  }
-  def clearScheduledMsgs = {
+  protected def clearScheduledMsgs() = {
     cancellables.foreach(c => c.cancel)
     cancellables = Set()
   }
-  def toDuration(time: OffsetDateTime) = Duration.between(OffsetDateTime.now(),time).getSeconds.seconds
-
-
 }
 
-class AuctionFSM(auctionID: Int, model: DAO) extends Actor with ListenerManager with EventScheduler {
+class AuctionFSM(auctionID: Int, model: DAO) extends Actor with ListenerManager with StateManager {
   import Helpers._
   
   val config: AuctionConfig = model.getAuction(auctionID)
@@ -81,7 +74,6 @@ class AuctionFSM(auctionID: Int, model: DAO) extends Actor with ListenerManager 
     case x => sender ! x
   }
   def PreAuction: Receive = {
-    scheduleRecurringMsg(GetParticipants,Duration.ofMinutes(3))
     return SubscribeWatcher.orElse {
       case GetParticipants => {
         availableSquads = model.getSquads
@@ -113,26 +105,6 @@ class AuctionFSM(auctionID: Int, model: DAO) extends Actor with ListenerManager 
   }
   override def postStop(){
     AuctionFSM.dropAuction(auctionID)
-  }
-  def init = {
-    val now = OffsetDateTime.now()
-    if(now.isBefore(config.entryFreeze)){
-      PreAuction
-    } else if(now.isAfter(config.entryFreeze) && now.isBefore(config.startTime)){
-      EntryFreeze
-    } else {
-      var price = config.priceStart
-      var time = config.startTime
-      while(price > 0 && now.isAfter(time)){
-        price -= price
-        time = time.plusMinutes(config.interval)
-      }
-      if(price > 0){
-        ActiveAuction(Price(price))
-      } else {
-        PostAuction
-      }
-    }
   }
 
 }

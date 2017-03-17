@@ -2,12 +2,13 @@ package auction
 
 import auction.Domain._
 import java.time.OffsetDateTime
+import java.time.Duration
 
 class DAO {
   private val auctionConfigs = Map[Int,AuctionConfig](
-    (1,AuctionConfig(OffsetDateTime.now().plusSeconds(10),1,1,100)),
-    (2,AuctionConfig(OffsetDateTime.now().minusMinutes(3),1,1,100)),
-    (3,AuctionConfig(OffsetDateTime.now().minusMinutes(120),1,1,100))
+    (1,AuctionConfig(OffsetDateTime.now().withNano(0).plusMinutes(6).plusSeconds(1),Duration.ofSeconds(1),1,3)),
+    (2,AuctionConfig(OffsetDateTime.now().withNano(0).plusSeconds(2),Duration.ofSeconds(1),1,3)),
+    (3,AuctionConfig(OffsetDateTime.now().withNano(0).minusSeconds(120),Duration.ofSeconds(1),1,3))
   )
   private var squads = Map[Int,Squad](1 -> Squad(1),2 -> Squad(2), 3->Squad(3))
   private var parties = Map[Int,Party](1 -> Party(1),2 -> Party(2), 3->Party(3))

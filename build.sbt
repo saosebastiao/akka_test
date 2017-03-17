@@ -15,7 +15,7 @@ libraryDependencies ++= Seq(
   "org.postgresql" % "postgresql" % "42.0.0",
   "com.github.tminglei" %% "slick-pg" % "0.14.6",
   "com.github.tminglei" %% "slick-pg_date2" % "0.14.6",
-  "com.typesafe.akka" %% "akka-http" % "10.0.4",
+  "com.typesafe.akka" %% "akka-http" % "10.0.5",
   "com.typesafe.akka" %% "akka-testkit" % akkaVersion,
   "io.circe" %% "circe-core" % circeVersion,
   "io.circe" %% "circe-generic" % circeVersion,
