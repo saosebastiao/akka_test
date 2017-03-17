@@ -1,7 +1,7 @@
 package auction
 
 import akka.actor.Actor
-import Messages._
+import Domain._
 import akka.actor.Props
 import akka.actor.actorRef2Scala
 

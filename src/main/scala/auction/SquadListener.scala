@@ -1,6 +1,6 @@
 package auction
 import akka.actor.Actor
-import Messages._
+import Domain._
 import akka.actor.Props
 import akka.actor.actorRef2Scala
 
@@ -27,5 +27,4 @@ object SquadListener {
   def propsBefore = Props(classOf[SquadListener],1)
   def propsDuring = Props(classOf[SquadListener],2)
   def propsAfter = Props(classOf[SquadListener],3)
-  
 }

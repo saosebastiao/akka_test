@@ -5,8 +5,8 @@ import akka.actor.Actor
 import akka.actor.Props
 import akka.testkit.{ TestActors, TestKit, ImplicitSender }
 import org.scalatest._
-import Messages._
-import Events._
+import Domain._
+import akka.testkit.TestActorRef
 
 
 class AuctionFSMSpec() extends TestKit(ActorSystem("MySpec")) with ImplicitSender
@@ -15,13 +15,27 @@ class AuctionFSMSpec() extends TestKit(ActorSystem("MySpec")) with ImplicitSende
   override def afterAll {
     TestKit.shutdownActorSystem(system)
   }
-  val auction = AuctionFSM.getAuction(1)
- 
+
+  
   "An AuctionFSM actor" must {
- 
-    "send back messages unchanged" in {
-      auction ! "hello world"
-      expectMsg("hello world")
+    val auction = TestActorRef(AuctionFSM.props(1))
+    val impl = auction.underlying
+    "start up" in {
+      awaitCond(!impl.isTerminated)
+    }
+    "register" in {
+      auction ! AuctionListen
+      expectMsg(ListenConfirm)
+    }
+
+    "unregister" in {
+      auction ! AuctionLeave
+      expectMsg(LeaveConfirm)
+
+    }
+    "shutdown" in {
+      awaitCond(impl.isTerminated)
     }
   }
+
 }
