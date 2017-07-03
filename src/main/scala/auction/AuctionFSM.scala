@@ -22,18 +22,19 @@ object Helpers {
   }
 }
 
-object FilterResolver {
-  
-}
 
+trait StateManager { this: Actor =>
 
+  import context.dispatcher
 
-
-trait ListenerManager { this: Actor =>
   private var listeners = Set[ActorRef]()
-  def broadcast[T](msg: T) = {
+  private var cancellables = Set[Cancellable]()
+
+  
+  protected def broadcast[T](msg: T) = {
     listeners.foreach(s => s ! msg)
   }
+  
   protected def SubscribeWatcher: Receive = {
     case AuctionListen => {
       sender ! ListenConfirm
@@ -47,12 +48,6 @@ trait ListenerManager { this: Actor =>
       }
     }
   }
-}
-
-
-trait StateManager { this: Actor =>
-  import context.dispatcher
-  private var cancellables = Set[Cancellable]()
   protected def scheduleMsg(msg: Any,time: OffsetDateTime) = {
     val delay = Duration.between(OffsetDateTime.now(),time).getSeconds.seconds
     cancellables += context.system.scheduler.scheduleOnce(delay, self, msg)
@@ -63,50 +58,67 @@ trait StateManager { this: Actor =>
   }
 }
 
-class AuctionFSM(auctionID: Int, model: DAO) extends Actor with ListenerManager with StateManager {
+final class AuctionFSM(auctionID: Int, model: DAO) extends Actor {
   import Helpers._
-  
-  val config: AuctionConfig = model.getAuction(auctionID)
-  var availableSquads: Map[Int,Squad] = model.getAvailableSquads
-  var parties: Map[Int,Party] = model.getParties
-  var transactions = model.getTransactions
-  def receive = SubscribeWatcher.orElse {
-    case x => sender ! x
+  import context.dispatcher
+
+  private var listeners = Set[ActorRef]()
+  private var cancellables = Set[Cancellable]()
+  private val config: AuctionConfig = model.getAuction(auctionID)
+  private var availableSquads: Map[Int,Squad] = model.getAvailableSquads
+  private var parties: Map[Int,Party] = model.getParties
+  private var transactions = model.getTransactions
+  private var currentState: Option[AuctionState] = None
+  private def broadcast[T](msg: T) = {
+    listeners.foreach(s => s ! msg)
   }
-  def PreAuction: Receive = {
-    return SubscribeWatcher.orElse {
-      case GetParticipants => {
-        availableSquads = model.getSquads
-        parties = model.getParties
-        broadcast(Message(s"squads: $availableSquads, parties: $parties"))
+  
+  // Initialize
+  config.iterator().foreach({
+    case event if event.effective.isAfter(OffsetDateTime.now()) => {
+      val delay = Duration.between(OffsetDateTime.now(),event.effective).getSeconds.seconds
+      cancellables += context.system.scheduler.scheduleOnce(delay, self, event)
+    }
+    case expired => currentState = Some(expired)
+  })
+  
+  def receive = {
+    case AuctionListen => {
+      sender ! ListenConfirm
+      listeners += sender
+    }
+    case AuctionLeave => {
+      sender ! LeaveConfirm
+      listeners -= sender
+      if(listeners.isEmpty){
+        context.stop(self)
+      }
+    }
+    case state: AuctionState =>  {
+      availableSquads = model.getAvailableSquads
+      parties = model.getParties
+      currentState = Some(state)
+    }
+    case msg: UserMessage => currentState.get match {
+      case p: PreAuction => msg match {
+        case GetAuctionState => sender ! CurrentState(p,availableSquads.values.toSeq,parties.values.toSeq)
+        case _ => throw new RuntimeException("no bids allowed before auction")
+      }
+      case e: EntryFreeze => {
+        
+      }
+      case a: ActiveAuction =>{
+        
+      }
+      case p: PostAuction => {
+        
       }
     }
   }
-  
-  def EntryFreeze: Receive = {
-    return SubscribeWatcher.orElse {
-      case _ =>
-    }
-  }
-  def FiltersFreeze: Receive = {
-    return SubscribeWatcher.orElse {
-      case _ =>
-    }
-  }
-  def ActiveAuction(price: Price): Receive = {
-    return SubscribeWatcher.orElse {
-      case _ =>
-    }
-  }
-  def PostAuction: Receive = {
-    return SubscribeWatcher.orElse {
-      case _ =>
-    }
-  }
   override def postStop(){
+    cancellables.foreach(c => c.cancel)
     AuctionFSM.dropAuction(auctionID)
   }
-
 }
 
 object AuctionFSM {
